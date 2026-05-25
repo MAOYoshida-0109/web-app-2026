@@ -1,51 +1,46 @@
+require('dotenv').config();
 const express = require('express');
+const { Pool } = require('pg');
+
 const app = express();
 
 app.use(express.json());
 app.use(express.static('public'));
 
-
-//ルート１：トップページ
-app.get('/',(req, res) => {
-    res.send('トップページです');
-});
-
-//ルート２：自己紹介ページ
-app.get('/about',(req, res) => {
-    res.send('自己紹介ページです');
-});
-
-//ルート３：現在時刻を返す
-app.get('/time',(req, res) => {
-    const now = new Date().toLocaleString('ja-JP');
-    res.send('現在時刻:' + now);
-});
-
-app.get('/status', (req, res) => {
-    res.json({ status: 'ok', message: 'サーバーが動いています' });
-});
-
-app.get('/status', (req, res) => {
-    res.json({ status: 'ok' , message: 'APIが動いています' });
+const pool = new Pool({
+  host: process.env.DB_HOST,
+  port: process.env.DB_PORT,
+  database: process.env.DB_NAME,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
 });
 
 
-const messages = [];
+// GET タスク一覧取得
+app.get('/api/tasks', async (req, res) => {
+  const result = await pool.query(
+    'SELECT * FROM tasks ORDER BY id ASC'
+  );
 
-// GET:メッセージ一覧を取得
-app.get('/api/messages',(req, res) => {
-    res.json(messages);
+  res.json(result.rows);
 });
 
-// POST:メッセージを追加
-app.post('/api/messages',(req, res) => {
-    const {username, text } = req.body;
-    const newMessage = { id: messages.length + 1, username, text };
-    messages.push(newMessage);
-    res.json(newMessage);
+
+// POST タスク追加
+app.post('/api/tasks', async (req, res) => {
+  const { title } = req.body;
+
+  const result = await pool.query(
+    'INSERT INTO tasks (title, completed) VALUES ($1, $2) RETURNING *',
+    [title, false]
+  );
+
+  console.log(result.rows[0]);
+
+  res.json(result.rows[0]);
 });
+
 
 app.listen(3000, () => {
-    console.log('サーバーが起動しました: http://localhost:3000');
+  console.log('サーバーが起動しました: http://localhost:3000');
 });
-
